@@ -55,7 +55,8 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 .scorer-top{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px}
 .match-info-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .match-name{font-size:14px;color:var(--text2);font-weight:600}
-.pin-display{font-family:'Space Mono';font-size:13px;color:var(--amber);background:var(--surface3);padding:3px 10px;border-radius:6px;border:1px solid var(--amber)}
+.pin-display{font-family:'Space Mono';font-size:13px;color:var(--amber);background:var(--surface3);padding:3px 10px;border-radius:6px;border:1px solid var(--amber);cursor:pointer}
+.pin-display:hover{background:var(--green-dark)}
 .live-dot{display:inline-block;width:8px;height:8px;background:var(--red);border-radius:50%;margin-right:4px;animation:blink 1.2s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .scoreboard{text-align:center;padding:16px 0 10px}
@@ -135,6 +136,7 @@ select.form-input option{background:#0f2a18}
 .stats-label{color:var(--text2)}
 .stats-value{font-family:'Space Mono';font-weight:700;color:var(--amber)}
 .export-import-buttons{display:flex;gap:10px;margin-top:16px}
+.viewer-count{background:var(--surface3);padding:2px 8px;border-radius:12px;font-size:11px;color:var(--text2)}
 </style>
 </head>
 <body>
@@ -226,12 +228,13 @@ select.form-input option{background:#0f2a18}
     <div class="scorer-top">
       <div class="match-info-bar">
         <div class="match-name" id="score-match-name">Match</div>
-        <div class="pin-display" id="pin-display">PIN: ----</div>
+        <div class="pin-display" id="pin-display" onclick="copyPin()">PIN: ----</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3)">
         <span class="live-dot"></span>
         <span id="innings-label">1st Innings</span>
         <span id="over-limit" style="margin-left:auto"></span>
+        <span id="viewer-count" class="viewer-count">👁️ 0</span>
       </div>
     </div>
     <div class="scoreboard">
@@ -292,17 +295,17 @@ select.form-input option{background:#0f2a18}
     <div class="join-form">
       <div class="form-group">
         <div class="form-label">Enter Match PIN</div>
-        <input class="form-input pin-input" id="join-pin" placeholder="000000" maxlength="6" type="text">
+        <input class="form-input pin-input" id="join-pin" placeholder="000000" maxlength="6" type="text" autocomplete="off">
       </div>
       <button class="btn-amber" onclick="joinMatch()">&#128225; Watch Live</button>
-      <div id="join-error" style="color:var(--red);font-size:14px;text-align:center;display:none">Match not found. Check PIN and make sure scorer is on same device/browser.</div>
+      <div id="join-error" style="color:var(--red);font-size:14px;text-align:center;display:none">Match not found. Make sure the scorer has started the match and is on the same network.</div>
     </div>
   </div>
 
   <!-- LIVE VIEW -->
   <div class="screen" id="screen-live-view">
     <div class="live-header">
-      <button class="back-btn" onclick="showScreen('screen-home');clearInterval(viewerInterval)">&#8592;</button>
+      <button class="back-btn" onclick="stopLiveView()">&#8592;</button>
       <div class="live-title" id="lv-match-name">Loading...</div>
       <div class="live-badge"><span class="live-dot"></span>LIVE</div>
     </div>
@@ -434,10 +437,12 @@ select.form-input option{background:#0f2a18}
 var SKEY='cricscore_matches';
 var LKEY='cricscore_live';
 var STATS_KEY='cricscore_player_stats';
+var VIEWERS_KEY='cricscore_viewers';
 var st={tossWinner:'A',tossChoice:'bat',match:null};
 var MS=null;
 var viewerInterval=null;
 var allPlayerStats = {};
+var currentViewingPin = null;
 
 // Load player stats from localStorage
 function loadPlayerStats() {
@@ -544,6 +549,13 @@ function selectChoice(c){
   document.getElementById('choice-bowl').classList.toggle('selected',c==='bowl');
 }
 
+function copyPin() {
+  if(MS && MS.pin) {
+    navigator.clipboard.writeText(MS.pin);
+    alert('PIN ' + MS.pin + ' copied to clipboard! Share it with viewers.');
+  }
+}
+
 function setupPlayers(){
   var tA=document.getElementById('teamA').value||'Team A';
   var tB=document.getElementById('teamB').value||'Team B';
@@ -575,12 +587,30 @@ function startMatch(){
     venue:m.venue,battingFirst:m.battingFirst,playersA:pA,playersB:pB,
     innings:1,innings1:null,target:null,
     current:initInn(m.battingFirst,pA,pB,m.overs),
-    status:'live',created:Date.now(),manOfTheMatch:null
+    status:'live',created:Date.now(),manOfTheMatch:null,viewers:0
   };
   saveLive();
   initUI();
   showScreen('screen-scoring');
   promptBowler();
+  startHeartbeat();
+}
+
+function startHeartbeat() {
+  setInterval(function() {
+    if(MS && MS.status === 'live') {
+      updateViewerCount();
+    }
+  }, 5000);
+}
+
+function updateViewerCount() {
+  if(MS) {
+    var viewers = JSON.parse(localStorage.getItem(VIEWERS_KEY + '_' + MS.pin) || '[]');
+    MS.viewers = viewers.length;
+    document.getElementById('viewer-count').innerHTML = '👁️ ' + MS.viewers;
+    saveLive();
+  }
 }
 
 function initInn(bt,pA,pB,overs){
@@ -602,7 +632,9 @@ function initUI(){
 }
 
 function updateUI(){
+  if(!MS) return;
   var c=MS.current;
+  if(!c) return;
   var bn=c.battingTeam==='A'?MS.teamA:MS.teamB;
   document.getElementById('batting-team-name').textContent=bn.toUpperCase();
   document.getElementById('runs').textContent=c.runs;
@@ -620,12 +652,14 @@ function updateUI(){
     tgt.style.display='block';
     tgt.textContent='Target: '+MS.target+' | Need: '+need+' off '+ballsLeft+' balls';
   } else { tgt.style.display='none'; }
-  var b1=c.batsmen[c.striker],b2=c.batsmen[c.nonStriker];
-  document.getElementById('b1-name').innerHTML=b1.name+' <span class="on-strike">*</span>';
-  document.getElementById('b1-stats').textContent=b1.runs+'('+b1.balls+') 4s:'+b1.fours+' 6s:'+b1.sixes;
-  document.getElementById('b2-name').textContent=b2.name;
-  document.getElementById('b2-stats').textContent=b2.runs+'('+b2.balls+') 4s:'+b2.fours+' 6s:'+b2.sixes;
-  if(c.bowlerIdx!==null){
+  if(c.batsmen && c.batsmen[c.striker] && c.batsmen[c.nonStriker]) {
+    var b1=c.batsmen[c.striker],b2=c.batsmen[c.nonStriker];
+    document.getElementById('b1-name').innerHTML=b1.name+' <span class="on-strike">*</span>';
+    document.getElementById('b1-stats').textContent=b1.runs+'('+b1.balls+') 4s:'+b1.fours+' 6s:'+b1.sixes;
+    document.getElementById('b2-name').textContent=b2.name;
+    document.getElementById('b2-stats').textContent=b2.runs+'('+b2.balls+') 4s:'+b2.fours+' 6s:'+b2.sixes;
+  }
+  if(c.bowlerIdx!==null && c.bowling[c.bowlerIdx]){
     var bw=c.bowling[c.bowlerIdx];
     document.getElementById('bowler-name').textContent=bw.name;
     document.getElementById('bowler-stats').textContent=bw.wickets+'-'+bw.runs+' ('+Math.floor(bw.balls/6)+'.'+bw.balls%6+')';
@@ -642,21 +676,23 @@ function updateUI(){
 function renderLog(){
   var c=MS.current;
   var html='';
-  c.currentOver.forEach(function(b){
-    var cl='ball-0';
-    if(b==='W')cl='ball-W';
-    else if(b==='4')cl='ball-4';
-    else if(b==='6')cl='ball-6';
-    else if(b==='Wd'||b==='Nb'||b==='B')cl='ball-extra';
-    else if(b!=='0')cl='ball-run';
-    html+='<div class="ball-chip '+cl+'">'+b+'</div>';
-  });
+  if(c.currentOver) {
+    c.currentOver.forEach(function(b){
+      var cl='ball-0';
+      if(b==='W')cl='ball-W';
+      else if(b==='4')cl='ball-4';
+      else if(b==='6')cl='ball-6';
+      else if(b==='Wd'||b==='Nb'||b==='B')cl='ball-extra';
+      else if(b!=='0')cl='ball-run';
+      html+='<div class="ball-chip '+cl+'">'+b+'</div>';
+    });
+  }
   html+='<span style="font-size:12px;color:var(--text3);margin-left:8px;flex-shrink:0">&#8592; End</span>';
   document.getElementById('ball-log').innerHTML=html;
 }
 
 function addRun(runs){
-  if(MS.current.bowlerIdx===null){promptBowler();return;}
+  if(!MS || MS.current.bowlerIdx===null){promptBowler();return;}
   var c=MS.current;
   var bat=c.batsmen[c.striker];
   bat.runs+=runs; bat.balls++;
@@ -673,7 +709,7 @@ function addRun(runs){
 }
 
 function addExtra(type){
-  if(MS.current.bowlerIdx===null){promptBowler();return;}
+  if(!MS || MS.current.bowlerIdx===null){promptBowler();return;}
   var c=MS.current;
   var bw=c.bowling[c.bowlerIdx];
   var lbl=type==='wide'?'Wd':type==='nb'?'Nb':'B';
@@ -901,8 +937,15 @@ function showResults(){
 }
 
 function saveLive(){
-  if(!MS)return;
-  try{localStorage.setItem(LKEY+'_'+MS.pin,JSON.stringify(MS));}catch(e){}
+  if(!MS) return;
+  try{
+    localStorage.setItem(LKEY+'_'+MS.pin, JSON.stringify(MS));
+    // Trigger storage event for cross-tab communication
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: LKEY+'_'+MS.pin,
+      newValue: JSON.stringify(MS)
+    }));
+  } catch(e){}
 }
 
 function saveMatch(){
@@ -961,72 +1004,146 @@ function loadSaved(id){
 }
 
 function joinMatch(){
-  var pin=document.getElementById('join-pin').value.trim();
-  var err=document.getElementById('join-error');
-  err.style.display='none';
+  var pin = document.getElementById('join-pin').value.trim();
+  var err = document.getElementById('join-error');
+  err.style.display = 'none';
+  
+  if(!pin || pin.length !== 6) {
+    err.textContent = 'Please enter a valid 6-digit PIN';
+    err.style.display = 'block';
+    return;
+  }
+  
   try{
-    var stored=localStorage.getItem(LKEY+'_'+pin);
-    if(!stored){err.style.display='block';return;}
-    startViewing(JSON.parse(stored));
-  }catch(e){err.style.display='block';}
+    var stored = localStorage.getItem(LKEY+'_'+pin);
+    if(!stored){
+      err.textContent = 'Match not found. Make sure the scorer has started the match.';
+      err.style.display = 'block';
+      return;
+    }
+    
+    var matchData = JSON.parse(stored);
+    if(matchData.status === 'completed') {
+      err.textContent = 'This match has already ended.';
+      err.style.display = 'block';
+      return;
+    }
+    
+    // Register viewer
+    var viewers = JSON.parse(localStorage.getItem(VIEWERS_KEY + '_' + pin) || '[]');
+    var viewerId = 'viewer_' + Date.now() + '_' + Math.random();
+    viewers.push(viewerId);
+    localStorage.setItem(VIEWERS_KEY + '_' + pin, JSON.stringify(viewers));
+    
+    currentViewingPin = pin;
+    startViewing(matchData);
+  } catch(e){
+    console.error(e);
+    err.textContent = 'Error joining match. Please try again.';
+    err.style.display = 'block';
+  }
 }
 
 function startViewing(data){
   updateViewer(data);
   showScreen('screen-live-view');
-  clearInterval(viewerInterval);
-  viewerInterval=setInterval(function(){
+  
+  if(viewerInterval) clearInterval(viewerInterval);
+  
+  viewerInterval = setInterval(function(){
     try{
-      var s=localStorage.getItem(LKEY+'_'+data.pin);
-      if(s)updateViewer(JSON.parse(s));
-    }catch(e){}
-  },2000);
+      var s = localStorage.getItem(LKEY+'_'+data.pin);
+      if(s){
+        var updated = JSON.parse(s);
+        if(updated.status === 'completed') {
+          clearInterval(viewerInterval);
+          alert('Match has ended!');
+          showScreen('screen-home');
+        } else {
+          updateViewer(updated);
+        }
+      }
+    } catch(e){}
+  }, 1500);
+}
+
+function stopLiveView() {
+  if(viewerInterval) {
+    clearInterval(viewerInterval);
+    viewerInterval = null;
+  }
+  
+  // Unregister viewer
+  if(currentViewingPin) {
+    var viewers = JSON.parse(localStorage.getItem(VIEWERS_KEY + '_' + currentViewingPin) || '[]');
+    viewers.pop(); // Remove last viewer (simplified)
+    localStorage.setItem(VIEWERS_KEY + '_' + currentViewingPin, JSON.stringify(viewers));
+    currentViewingPin = null;
+  }
+  
+  showScreen('screen-home');
 }
 
 function updateViewer(data){
-  var c=data.current;
-  document.getElementById('lv-match-name').textContent=data.matchName;
-  document.getElementById('lv-batting-team').textContent=(c.battingTeam==='A'?data.teamA:data.teamB).toUpperCase();
-  document.getElementById('lv-runs').textContent=c.runs;
-  document.getElementById('lv-wkts').textContent=c.wickets;
-  document.getElementById('lv-overs').textContent=Math.floor(c.balls/6)+'.'+c.balls%6+' Overs';
-  var crr=c.balls>0?((c.runs/c.balls)*6).toFixed(2):'0.00';
-  document.getElementById('lv-crr').textContent='CRR: '+crr;
-  var lvt=document.getElementById('lv-target');
-  if(data.innings===2&&data.target){
-    var need=data.target-c.runs;
-    var ballsLeft=(data.overs*6)-c.balls;
-    lvt.style.display='block';
-    lvt.textContent='Target: '+data.target+' | Need: '+need+' off '+ballsLeft+' balls';
-  } else {lvt.style.display='none';}
-  var b1=c.batsmen[c.striker],b2=c.batsmen[c.nonStriker];
-  document.getElementById('lv-b1-name').innerHTML=(b1?b1.name:'-')+' <span class="on-strike">*</span>';
-  document.getElementById('lv-b1-stats').textContent=b1?b1.runs+'('+b1.balls+')':'';
-  document.getElementById('lv-b2-name').textContent=b2?b2.name:'-';
-  document.getElementById('lv-b2-stats').textContent=b2?b2.runs+'('+b2.balls+')':'';
-  if(c.bowlerIdx!==null){
-    var bw=c.bowling[c.bowlerIdx];
-    document.getElementById('lv-bowler-name').textContent=bw?bw.name:'-';
-    document.getElementById('lv-bowler-stats').textContent=bw?bw.wickets+'-'+bw.runs+' ('+Math.floor(bw.balls/6)+'.'+bw.balls%6+')':'';
+  if(!data || !data.current) return;
+  
+  var c = data.current;
+  document.getElementById('lv-match-name').textContent = data.matchName || 'Match';
+  document.getElementById('lv-batting-team').textContent = (c.battingTeam==='A'?data.teamA:data.teamB).toUpperCase();
+  document.getElementById('lv-runs').textContent = c.runs || 0;
+  document.getElementById('lv-wkts').textContent = c.wickets || 0;
+  document.getElementById('lv-overs').textContent = Math.floor((c.balls||0)/6)+'.'+(c.balls||0)%6+' Overs';
+  var crr = (c.balls||0) > 0 ? (((c.runs||0)/(c.balls||0))*6).toFixed(2) : '0.00';
+  document.getElementById('lv-crr').textContent = 'CRR: '+crr;
+  
+  var lvt = document.getElementById('lv-target');
+  if(data.innings === 2 && data.target){
+    var need = data.target - (c.runs||0);
+    var ballsLeft = (data.overs * 6) - (c.balls||0);
+    lvt.style.display = 'block';
+    lvt.textContent = 'Target: '+data.target+' | Need: '+need+' off '+ballsLeft+' balls';
+  } else {
+    lvt.style.display = 'none';
   }
-  var logEl=document.getElementById('lv-ball-log');
-  var lh='';
-  (c.currentOver||[]).forEach(function(b){
-    var cl='ball-0';
-    if(b==='W')cl='ball-W';
-    else if(b==='4')cl='ball-4';
-    else if(b==='6')cl='ball-6';
-    else if(b==='Wd'||b==='Nb'||b==='B')cl='ball-extra';
-    else if(b!=='0')cl='ball-run';
-    lh+='<div class="ball-chip '+cl+'">'+b+'</div>';
-  });
-  logEl.innerHTML=lh;
-  var feed=document.getElementById('lv-commentary');
-  var fh='';
-  (c.commentary||[]).slice(0,12).forEach(function(comm){
-    fh+='<div class="comm-item"><div class="comm-ball">Over '+comm.over+'</div><div class="comm-text">'+comm.text+'</div></div>';
-  });
-  feed.innerHTML=fh;
+  
+  if(c.batsmen && c.batsmen[c.striker]) {
+    var b1 = c.batsmen[c.striker];
+    var b2 = c.batsmen[c.nonStriker];
+    document.getElementById('lv-b1-name').innerHTML = (b1?b1.name:'-')+' <span class="on-strike">*</span>';
+    document.getElementById('lv-b1-stats').textContent = b1 ? b1.runs+'('+b1.balls+')' : '';
+    document.getElementById('lv-b2-name').textContent = b2 ? b2.name : '-';
+    document.getElementById('lv-b2-stats').textContent = b2 ? b2.runs+'('+b2.balls+')' : '';
+  }
+  
+  if(c.bowlerIdx !== null && c.bowling && c.bowling[c.bowlerIdx]){
+    var bw = c.bowling[c.bowlerIdx];
+    document.getElementById('lv-bowler-name').textContent = bw ? bw.name : '-';
+    document.getElementById('lv-bowler-stats').textContent = bw ? bw.wickets+'-'+bw.runs+' ('+Math.floor(bw.balls/6)+'.'+bw.balls%6+')' : '';
+  }
+  
+  var logEl = document.getElementById('lv-ball-log');
+  var lh = '';
+  if(c.currentOver) {
+    c.currentOver.forEach(function(b){
+      var cl = 'ball-0';
+      if(b==='W') cl = 'ball-W';
+      else if(b==='4') cl = 'ball-4';
+      else if(b==='6') cl = 'ball-6';
+      else if(b==='Wd'||b==='Nb'||b==='B') cl = 'ball-extra';
+      else if(b!=='0') cl = 'ball-run';
+      lh += '<div class="ball-chip '+cl+'">'+b+'</div>';
+    });
+  }
+  logEl.innerHTML = lh;
+  
+  var feed = document.getElementById('lv-commentary');
+  var fh = '';
+  if(c.commentary) {
+    c.commentary.slice(0,12).forEach(function(comm){
+      fh += '<div class="comm-item"><div class="comm-ball">Over '+comm.over+'</div><div class="comm-text">'+comm.text+'</div></div>';
+    });
+  }
+  feed.innerHTML = fh;
 }
 
 function showPlayerStats() {
@@ -1058,14 +1175,14 @@ function displayPlayerStats() {
         <div class="stats-card-title">${player.name}</div>
         <div class="stats-item"><span class="stats-label">Matches</span><span class="stats-value">${player.matches}</span></div>
         <div class="stats-item"><span class="stats-label">Runs</span><span class="stats-value">${player.runs}</span></div>
-        <div class="stats-item"><span class="stats-label">Average</span><span class="stats-value">${battingAvg}</span></div>
-        <div class="stats-item"><span class="stats-label">Strike Rate</span><span class="stats-value">${strikeRate}</span></div>
+        <div class="stats-item"><span class="stats-label">Avg</span><span class="stats-value">${battingAvg}</span></div>
+        <div class="stats-item"><span class="stats-label">SR</span><span class="stats-value">${strikeRate}</span></div>
         <div class="stats-item"><span class="stats-label">50s/100s</span><span class="stats-value">${Math.floor(player.bestBatting/50)}/${Math.floor(player.bestBatting/100)}</span></div>
-        <div class="stats-item"><span class="stats-label">Best Batting</span><span class="stats-value">${player.bestBatting}</span></div>
+        <div class="stats-item"><span class="stats-label">Best</span><span class="stats-value">${player.bestBatting}</span></div>
         <div class="stats-item"><span class="stats-label">Wickets</span><span class="stats-value">${player.wickets}</span></div>
-        <div class="stats-item"><span class="stats-label">Bowling Avg</span><span class="stats-value">${bowlingAvg}</span></div>
-        <div class="stats-item"><span class="stats-label">Economy</span><span class="stats-value">${economy}</span></div>
-        <div class="stats-item"><span class="stats-label">Best Bowling</span><span class="stats-value">${player.bestBowling.wickets}/${player.bestBowling.runs}</span></div>
+        <div class="stats-item"><span class="stats-label">Bowl Avg</span><span class="stats-value">${bowlingAvg}</span></div>
+        <div class="stats-item"><span class="stats-label">Econ</span><span class="stats-value">${economy}</span></div>
+        <div class="stats-item"><span class="stats-label">Best Bowl</span><span class="stats-value">${player.bestBowling.wickets}/${player.bestBowling.runs}</span></div>
         <div class="stats-item"><span class="stats-label">4s/6s</span><span class="stats-value">${player.fours}/${player.sixes}</span></div>
       </div>
     `;
@@ -1099,13 +1216,13 @@ function filterPlayers() {
         <div class="stats-card-title">${player.name}</div>
         <div class="stats-item"><span class="stats-label">Matches</span><span class="stats-value">${player.matches}</span></div>
         <div class="stats-item"><span class="stats-label">Runs</span><span class="stats-value">${player.runs}</span></div>
-        <div class="stats-item"><span class="stats-label">Average</span><span class="stats-value">${battingAvg}</span></div>
-        <div class="stats-item"><span class="stats-label">Strike Rate</span><span class="stats-value">${strikeRate}</span></div>
-        <div class="stats-item"><span class="stats-label">Best Batting</span><span class="stats-value">${player.bestBatting}</span></div>
+        <div class="stats-item"><span class="stats-label">Avg</span><span class="stats-value">${battingAvg}</span></div>
+        <div class="stats-item"><span class="stats-label">SR</span><span class="stats-value">${strikeRate}</span></div>
+        <div class="stats-item"><span class="stats-label">Best</span><span class="stats-value">${player.bestBatting}</span></div>
         <div class="stats-item"><span class="stats-label">Wickets</span><span class="stats-value">${player.wickets}</span></div>
-        <div class="stats-item"><span class="stats-label">Bowling Avg</span><span class="stats-value">${bowlingAvg}</span></div>
-        <div class="stats-item"><span class="stats-label">Economy</span><span class="stats-value">${economy}</span></div>
-        <div class="stats-item"><span class="stats-label">Best Bowling</span><span class="stats-value">${player.bestBowling.wickets}/${player.bestBowling.runs}</span></div>
+        <div class="stats-item"><span class="stats-label">Bowl Avg</span><span class="stats-value">${bowlingAvg}</span></div>
+        <div class="stats-item"><span class="stats-label">Econ</span><span class="stats-value">${economy}</span></div>
+        <div class="stats-item"><span class="stats-label">Best Bowl</span><span class="stats-value">${player.bestBowling.wickets}/${player.bestBowling.runs}</span></div>
       </div>
     `;
   });
@@ -1154,6 +1271,15 @@ function importPlayerStats() {
   };
   input.click();
 }
+
+// Listen for storage events from scorer tab
+window.addEventListener('storage', function(e) {
+  if(viewerInterval && currentViewingPin && e.key === LKEY+'_'+currentViewingPin) {
+    if(e.newValue) {
+      updateViewer(JSON.parse(e.newValue));
+    }
+  }
+});
 
 selectToss('A');
 selectChoice('bat');
