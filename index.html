@@ -57,10 +57,13 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 .toss-row{display:flex;gap:8px}
 .toss-btn{flex:1;background:var(--surface2);border:1px solid var(--border);padding:12px;border-radius:10px;color:var(--text2);font-size:15px;font-weight:600;font-family:'Rajdhani';cursor:pointer;text-align:center}
 .toss-btn.selected{background:var(--green-dark);border-color:var(--green);color:var(--green-light)}
+.join-form{padding:30px 20px;display:flex;flex-direction:column;gap:16px}
+.pin-input{text-align:center;font-size:28px;font-family:'Space Mono';letter-spacing:8px;font-weight:700}
 .scorer-top{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px}
 .match-info-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
 .match-name{font-size:14px;color:var(--text2);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pin-display{font-family:'Space Mono';font-size:13px;color:var(--amber);background:var(--surface3);padding:3px 10px;border-radius:6px;border:1px solid var(--amber);cursor:pointer;white-space:nowrap}
+.pin-display:hover{background:var(--green-dark);border-color:var(--green)}
 .live-dot{display:inline-block;width:8px;height:8px;background:var(--red);border-radius:50%;margin-right:4px;animation:blink 1.2s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .status-bar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);flex-wrap:wrap}
@@ -82,7 +85,7 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 .bowler-left{flex:1;min-width:0}
 .bowler-name{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .bowler-stats{font-family:'Space Mono';font-size:13px;color:var(--text2);margin-top:4px}
-.ball-log{padding:0 16px 12px;display:flex;gap:8px;align-items:center;overflow-x:auto;min-height:50px}
+.ball-log{padding:0 16px 12px;display:flex;gap:8px;align-items:center;overflow-x:auto;min-height:50px;flex-wrap:nowrap}
 .ball-chip{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:'Space Mono';flex-shrink:0}
 .ball-0{background:var(--surface3);color:var(--text2);border:1px solid var(--border)}
 .ball-run{background:var(--surface3);color:var(--text);border:1px solid var(--border)}
@@ -104,7 +107,7 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 .action-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .end-inn-btn{background:var(--amber);color:#1a0f00;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:700;font-family:'Rajdhani';cursor:pointer;display:none}
 .split-over-btn{background:var(--surface2);color:var(--amber);border:1px solid var(--amber);border-radius:10px;padding:12px;font-size:14px;font-weight:700;font-family:'Rajdhani';cursor:pointer;display:none}
-.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:380px;padding:24px;max-height:92vh;overflow-y:auto}
 .modal-title{font-size:22px;font-weight:700;margin-bottom:16px;color:var(--green-light)}
 .modal-sub{font-size:14px;color:var(--text2);margin-bottom:16px;line-height:1.5}
@@ -243,7 +246,6 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
   <div class="setup-form" id="tournaments-list"></div>
 </div>
 
-<!-- REST OF THE SCREENS (SETUP, PLAYERS, SCORING, JOIN, LIVE VIEW, PLAYER STATS, RESULTS) -->
 <!-- SETUP -->
 <div class="screen" id="screen-setup">
   <div class="setup-header">
@@ -453,14 +455,101 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 
 </div>
 
-<!-- MODALS (same as before plus tournament modals) -->
-<div class="modal-overlay" id="modal-openers" style="display:none">...</div>
-<div class="modal-overlay" id="modal-batsman" style="display:none">...</div>
-<div class="modal-overlay" id="modal-wicket" style="display:none">...</div>
-<div class="modal-overlay" id="modal-bowler" style="display:none">...</div>
-<div class="modal-overlay" id="modal-inn-end" style="display:none">...</div>
-<div class="modal-overlay" id="modal-motm" style="display:none">...</div>
-<div class="modal-overlay" id="modal-noball" style="display:none">...</div>
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-openers" style="display:none">
+  <div class="modal">
+    <div class="modal-title">🏏 Opening Batters</div>
+    <div class="modal-sub" id="openers-team-label"></div>
+    <div class="form-group" style="margin-bottom:12px">
+      <div class="form-label">Striker (on strike)</div>
+      <select class="modal-input" id="opener-striker"></select>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Non-Striker</div>
+      <select class="modal-input" id="opener-nonstriker"></select>
+    </div>
+    <div class="modal-actions"><button class="btn-primary" onclick="confirmOpeners()">Confirm → Select Bowler</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-batsman" style="display:none">
+  <div class="modal">
+    <div class="modal-title">Next Batsman</div>
+    <select class="modal-input" id="new-batsman-select"></select>
+    <div class="modal-actions"><button class="btn-primary" onclick="confirmNewBatsman()">Confirm</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-wicket" style="display:none">
+  <div class="modal">
+    <div class="modal-title">🔴 Wicket!</div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="form-label">Batsman Out</div>
+      <select class="modal-input" id="wkt-batsman">
+        <option value="0">Striker</option>
+        <option value="1">Non-Striker</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <div class="form-label">Dismissal</div>
+      <select class="modal-input" id="wkt-type">
+        <option>Caught</option><option>Bowled</option><option>LBW</option>
+        <option>Run Out</option><option>Stumped</option><option>Hit Wicket</option><option>Retired Hurt</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Runs on this ball</div>
+      <input class="modal-input" id="wkt-runs" type="number" value="0" min="0">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="cancelWicket()">Cancel</button>
+      <button class="btn-primary" onclick="confirmWicket()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-bowler" style="display:none">
+  <div class="modal">
+    <div class="modal-title" id="bowler-modal-title">Select Bowler</div>
+    <div class="modal-sub" id="bowler-modal-sub"></div>
+    <div id="split-info-box" style="display:none;background:rgba(52,211,153,0.1);border:1px solid var(--green);border-radius:8px;padding:10px;font-size:13px;color:var(--green-light);margin-bottom:12px"></div>
+    <select class="modal-input" id="bowler-select"></select>
+    <div class="modal-actions"><button class="btn-primary" onclick="confirmBowler()">Confirm</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-inn-end" style="display:none">
+  <div class="modal">
+    <div class="modal-title" id="inn-end-title">Innings Complete!</div>
+    <div style="color:var(--text2);font-size:15px;margin:12px 0;line-height:1.6" id="inn-end-msg"></div>
+    <div class="modal-actions"><button class="btn-primary" onclick="startSecondInnings()">Start 2nd Innings →</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-motm" style="display:none">
+  <div class="modal">
+    <div class="modal-title">🏆 Man of the Match</div>
+    <div class="modal-sub">Full performance stats - tap to select</div>
+    <div id="motm-list" style="max-height:340px;overflow-y:auto;margin-bottom:4px"></div>
+    <div class="modal-actions"><button class="btn-primary" onclick="confirmMOTM()">Confirm & Save Match</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-noball" style="display:none">
+  <div class="modal">
+    <div class="modal-title">🎯 No Ball!</div>
+    <div class="modal-sub">Select extra runs from the no ball (Free Hit next ball)</div>
+    <div class="no-ball-options">
+      <button class="nb-run-btn" onclick="addNoBallWithRuns(0)">0</button>
+      <button class="nb-run-btn" onclick="addNoBallWithRuns(1)">1</button>
+      <button class="nb-run-btn" onclick="addNoBallWithRuns(2)">2</button>
+      <button class="nb-run-btn" onclick="addNoBallWithRuns(3)">3</button>
+      <button class="nb-run-btn" onclick="addNoBallWithRuns(4)">4</button>
+      <button class="nb-run-btn" onclick="addNoBallWithRuns(6)">6</button>
+    </div>
+    <div class="modal-actions"><button class="btn-secondary" onclick="closeNoBallModal()">Cancel</button></div>
+  </div>
+</div>
 
 <div class="fb-toast" id="fb-toast"></div>
 
@@ -487,26 +576,6 @@ function toast(msg, ok) {
   setTimeout(function() { el.style.display = 'none'; }, 2500);
 }
 
-// Admin: F7 key to wipe all data
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'F7') {
-    e.preventDefault();
-    if (confirm('⚠️ ADMIN OVERRIDE: This will wipe ALL player stats and ALL completed matches (last 30 days). This cannot be undone! Are you sure?')) {
-      if (confirm('FINAL WARNING: Type "WIPE ALL" to confirm')) {
-        var confirmation = prompt('Type "WIPE ALL" to confirm:');
-        if (confirmation === 'WIPE ALL') {
-          db.ref('playerStats').remove();
-          db.ref('completedMatches').remove();
-          toast('🗑️ ALL DATA WIPED! Player stats and match history cleared.', true);
-          setTimeout(function() { location.reload(); }, 1500);
-        } else {
-          toast('Wipe cancelled - incorrect confirmation', false);
-        }
-      }
-    }
-  }
-});
-
 // Global state
 var MS = null;
 var st = { tossWinner: 'A', tossChoice: 'bat' };
@@ -524,12 +593,6 @@ function showScreen(id) { document.querySelectorAll('.screen').forEach(function(
 function selectToss(s) { st.tossWinner = s; ['A', 'B'].forEach(function(x) { document.getElementById('toss-' + x).classList.toggle('selected', x === s); }); }
 function selectChoice(c) { st.tossChoice = c; ['bat', 'bowl'].forEach(function(x) { document.getElementById('choice-' + x).classList.toggle('selected', x === c); }); }
 function copyPin() { if (MS) { navigator.clipboard.writeText(MS.pin).catch(function() {}); toast('📋 PIN ' + MS.pin + ' copied!', true); } }
-
-// Hide modal functions
-function hideModals() {
-  var modals = document.querySelectorAll('.modal-overlay');
-  modals.forEach(function(m) { m.style.display = 'none'; });
-}
 
 // ==================== TOURNAMENT MODE ====================
 
@@ -737,7 +800,6 @@ function startTournamentMatch(tournamentId, roundIndex, matchIndex) {
     var teamAPlayers = tournament.playersPerTeam[match.teamA];
     var teamBPlayers = tournament.playersPerTeam[match.teamB];
     
-    // Create match object
     var matchId = genPin();
     var MSnew = {
       id: matchId,
@@ -769,7 +831,6 @@ function startTournamentMatch(tournamentId, roundIndex, matchIndex) {
     
     db.ref('matches/' + matchId).set(MSnew);
     
-    // Update tournament match status
     match.status = 'live';
     match.matchId = matchId;
     db.ref('tournaments/' + tournamentId + '/matches/' + roundIndex + '/matches/' + matchIndex).set(match);
@@ -861,7 +922,6 @@ function loadTournament(tournamentId) {
   });
 }
 
-// Function to update tournament after match completion
 function updateTournamentAfterMatch(matchResult) {
   if (!matchResult.tournamentId) return;
   
@@ -873,7 +933,6 @@ function updateTournamentAfterMatch(matchResult) {
     var matchIndex = matchResult.tournamentMatch;
     var match = tournament.matches[roundIndex].matches[matchIndex];
     
-    // Determine winner
     var winner = null;
     if (matchResult.innings2 && matchResult.innings2.runs >= matchResult.innings1.runs + 1) {
       winner = matchResult.innings2.battingTeam === 'A' ? matchResult.teamA : matchResult.teamB;
@@ -890,7 +949,6 @@ function updateTournamentAfterMatch(matchResult) {
     
     db.ref('tournaments/' + matchResult.tournamentId + '/matches/' + roundIndex + '/matches/' + matchIndex).set(match);
     
-    // Check if round is complete and advance winners
     var currentRound = tournament.matches[roundIndex];
     var allComplete = currentRound.matches.every(function(m) { return m.status === 'completed' || m.status === 'bye'; });
     
@@ -908,7 +966,6 @@ function updateTournamentAfterMatch(matchResult) {
       }
     }
     
-    // Check if tournament is complete
     var finalRound = tournament.matches[tournament.matches.length - 1];
     if (finalRound && finalRound.matches[0] && finalRound.matches[0].status === 'completed') {
       tournament.winner = finalRound.matches[0].winner;
@@ -1008,7 +1065,7 @@ function renderLog() {
     if (b === 'W') cl = 'ball-W';
     else if (b === '4') cl = 'ball-4';
     else if (b === '6') cl = 'ball-6';
-    else if (b === 'Wd' || b.includes('Nb') || b === 'B') cl = 'ball-extra';
+    else if (b === 'Wd' || (typeof b === 'string' && b.includes('Nb')) || b === 'B') cl = 'ball-extra';
     else if (b !== '0') cl = 'ball-run';
     h += '<div class="ball-chip ' + cl + '">' + b + '</div>';
   });
@@ -1413,7 +1470,7 @@ function showResults() {
     });
     h += '</tbody></table>';
     h += '<div style="margin-top:16px"><div class="innings-title">Bowling</div>';
-    h += '<table class="sc-table"><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr></thead><tbody>';
+    h += '<table class="sc-table"><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></table></thead><tbody>';
     inn.bowling.forEach(function(b) {
       if (b.balls > 0) {
         var overs = Math.floor(b.balls / 6) + '.' + b.balls % 6;
@@ -1503,7 +1560,6 @@ function showLiveMatches() {
     var liveMatches = [];
     for (var pin in matches) {
       var m = matches[pin];
-      // Only show matches that are live (status 'live' and not completed)
       if (m.status === 'live') {
         liveMatches.push({ pin: pin, data: m });
       }
@@ -1613,7 +1669,7 @@ function updateViewer(data) {
     document.getElementById('lv-bowler-stats').textContent = bw.wickets + '-' + bw.runs + ' (' + Math.floor(bw.balls / 6) + '.' + bw.balls % 6 + ')';
   }
   var lh = '';
-  (c.currentOver || []).forEach(function(b) { var cl = 'ball-0'; if (b === 'W') cl = 'ball-W'; else if (b === '4') cl = 'ball-4'; else if (b === '6') cl = 'ball-6'; else if (b === 'Wd' || b.includes('Nb') || b === 'B') cl = 'ball-extra'; else if (b !== '0') cl = 'ball-run'; lh += '<div class="ball-chip ' + cl + '">' + b + '</div>'; });
+  (c.currentOver || []).forEach(function(b) { var cl = 'ball-0'; if (b === 'W') cl = 'ball-W'; else if (b === '4') cl = 'ball-4'; else if (b === '6') cl = 'ball-6'; else if (b === 'Wd' || (typeof b === 'string' && b.includes('Nb')) || b === 'B') cl = 'ball-extra'; else if (b !== '0') cl = 'ball-run'; lh += '<div class="ball-chip ' + cl + '">' + b + '</div>'; });
   document.getElementById('lv-ball-log').innerHTML = lh;
   var fh = '';
   (c.commentary || []).slice(0, 15).forEach(function(x) { fh += '<div class="comm-item"><div class="comm-ball">Over ' + x.over + '</div><div class="comm-text">' + x.text + '</div></div>'; });
@@ -1747,6 +1803,24 @@ function importStats() {
   };
   inp.click();
 }
+
+// Admin: F7 key to wipe all data
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'F7') {
+    e.preventDefault();
+    if (confirm('⚠️ ADMIN OVERRIDE: This will wipe ALL player stats and ALL completed matches (last 30 days). This cannot be undone! Are you sure?')) {
+      var confirmation = prompt('Type "WIPE ALL" to confirm:');
+      if (confirmation === 'WIPE ALL') {
+        db.ref('playerStats').remove();
+        db.ref('completedMatches').remove();
+        toast('🗑️ ALL DATA WIPED! Player stats and match history cleared.', true);
+        setTimeout(function() { location.reload(); }, 1500);
+      } else {
+        toast('Wipe cancelled - incorrect confirmation', false);
+      }
+    }
+  }
+});
 
 // Initialize
 selectToss('A');
